@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1781932699218,
+      "tag": "0000_deep_amphibian",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1782013200000,
+      "tag": "0001_lumen_leads",
+      "breakpoints": true
+    }
+  ]
+}
