@@ -58,6 +58,21 @@ bun run db:migrate
 bun run db:seed
 ```
 
+## Deployment
+
+The repo includes `render.yaml`. Prefer Render, Railway, Fly, or another long-running platform with persistent disk support. The app uses SQLite, so a serverless target without persistent storage is not a good fit for the full authenticated demo.
+
+Render settings:
+
+```text
+Build Command: bun install --frozen-lockfile && npm rebuild better-sqlite3 && bun run build
+Start Command: bun run deploy:start
+DATABASE_URL: /var/data/lumen.db
+BETTER_AUTH_SECRET: generated random value
+BETTER_AUTH_URL: your real production URL
+Disk mount path: /var/data
+```
+
 ## Resume Summary
 
 ```text

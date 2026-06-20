@@ -59,6 +59,21 @@ bun run db:migrate
 bun run db:seed
 ```
 
+## 部署
+
+项目包含 `render.yaml`，推荐先用 Render / Railway / Fly 这类支持长驻服务和持久磁盘的平台部署。SQLite 文件需要持久化存储，不建议直接用没有持久磁盘的 serverless 环境做完整登录后台。
+
+Render 部署要点：
+
+```text
+Build Command: bun install --frozen-lockfile && npm rebuild better-sqlite3 && bun run build
+Start Command: bun run deploy:start
+DATABASE_URL: /var/data/lumen.db
+BETTER_AUTH_SECRET: 使用平台生成的随机值
+BETTER_AUTH_URL: 改成你的真实线上域名
+Disk mount path: /var/data
+```
+
 ## 目录
 
 ```text
