@@ -1,18 +1,13 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
+import { demoUser } from "@/lib/auth-client";
 
 export default async function DashboardLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  // Server-side session check. The middleware does an optimistic cookie
-  // redirect; this is the authoritative guard for the protected area.
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = (await cookies()).get("lumen_demo_session")?.value;
+  if (session !== "1") redirect("/login");
 
-  if (!session) {
-    redirect("/login");
-  }
-
-  return <AppShell user={session.user}>{children}</AppShell>;
+  return <AppShell user={demoUser}>{children}</AppShell>;
 }

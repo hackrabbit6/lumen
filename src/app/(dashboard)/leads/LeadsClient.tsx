@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -17,6 +17,8 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
+import { createLead, leadsToCsv, listLeads, updateLead } from "@/lib/api/leads";
+import { createAuditLog, type AuditLog } from "@/lib/api/audit-logs";
 import {
   LEAD_PRIORITIES,
   LEAD_STATUSES,
@@ -25,7 +27,6 @@ import {
   type LeadStatus,
   type NewLeadInput,
 } from "@/lib/data/leads";
-import { createLeadAction, deleteLeadAction, updateLeadAction } from "./actions";
 
 type StatusFilter = "All" | LeadStatus;
 type PriorityFilter = "All" | LeadPriority;
@@ -60,33 +61,23 @@ function priorityColor(priority: LeadPriority) {
 }
 
 interface LeadsClientProps {
-  leads: Lead[];
-  total: number;
-  page: number;
-  pageSize: number;
-  pageCount: number;
-  q: string;
-  status: StatusFilter;
-  priority: PriorityFilter;
+  initialLeads: Lead[];
+  initialLogs: AuditLog[];
 }
 
-export function LeadsClient({
-  leads,
-  total,
-  page,
-  pageSize,
-  pageCount,
-  q,
-  status,
-  priority,
-}: LeadsClientProps) {
+export function LeadsClient({ initialLeads, initialLogs }: LeadsClientProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const [allLeads, setAllLeads] = useState(initialLeads);
+  const [, setLogs] = useState(initialLogs);
 
-  const [search, setSearch] = useState(q);
+  const [search, setSearch] = useState("");
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("All");
+  const [priority, setPriority] = useState<PriorityFilter>("All");
+  const [page, setPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
-  const [isPending, startTransition] = useTransition();
 
   function navigate(next: {
     q?: string;
@@ -99,6 +90,11 @@ export function LeadsClient({
     const nextStatus = next.status ?? status;
     const nextPriority = next.priority ?? priority;
     const nextPage = next.page ?? 1;
+
+    setQ(nextQ.trim());
+    setStatus(nextStatus);
+    setPriority(nextPriority);
+    setPage(nextPage);
 
     if (nextQ.trim()) params.set("q", nextQ.trim());
     if (nextStatus !== "All") params.set("status", nextStatus);
@@ -116,33 +112,77 @@ export function LeadsClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
+  const result = useMemo(
+    () =>
+      listLeads(allLeads, {
+        page,
+        q,
+        status: status === "All" ? undefined : status,
+        priority: priority === "All" ? undefined : priority,
+      }),
+    [allLeads, page, priority, q, status],
+  );
+  const { leads, total, pageSize, pageCount } = result;
+
   async function handleCreate(input: NewLeadInput) {
-    const res = await createLeadAction(input);
-    if (res.ok) router.refresh();
-    return res;
+    const lead = createLead(input);
+    setAllLeads((items) => [lead, ...items]);
+    setLogs((items) => [
+      createAuditLog({
+        action: "create",
+        resource: "lead",
+        resourceId: lead.id,
+        summary: `Created lead for ${lead.company}`,
+      }),
+      ...items,
+    ]);
+    return { ok: true };
   }
 
   async function handleUpdate(input: NewLeadInput) {
     if (!editing) return { ok: false, error: "Nothing to update" };
-    const res = await updateLeadAction(editing.id, input);
-    if (res.ok) router.refresh();
-    return res;
+    const updated = updateLead(editing, input);
+    setAllLeads((items) =>
+      items.map((lead) => (lead.id === editing.id ? updated : lead)),
+    );
+    setLogs((items) => [
+      createAuditLog({
+        action: "update",
+        resource: "lead",
+        resourceId: updated.id,
+        summary: `Updated lead for ${updated.company}`,
+      }),
+      ...items,
+    ]);
+    return { ok: true };
   }
 
   function handleDelete(id: string) {
-    startTransition(async () => {
-      await deleteLeadAction(id);
-      router.refresh();
-    });
+    const lead = allLeads.find((item) => item.id === id);
+    setAllLeads((items) => items.filter((item) => item.id !== id));
+    setLogs((items) => [
+      createAuditLog({
+        action: "delete",
+        resource: "lead",
+        resourceId: id,
+        summary: `Deleted lead ${lead?.company ?? id}`,
+      }),
+      ...items,
+    ]);
+  }
+
+  function handleExport() {
+    const csv = leadsToCsv(result.leads);
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "leads.csv";
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeEnd = Math.min(page * pageSize, total);
-  const exportHref = `/api/leads/export?${new URLSearchParams({
-    ...(q ? { q } : {}),
-    ...(status !== "All" ? { status } : {}),
-    ...(priority !== "All" ? { priority } : {}),
-  })}`;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -153,10 +193,14 @@ export function LeadsClient({
             <p className="text-sm text-zinc-500">Reusable CRM-style resource module.</p>
           </div>
           <div className="flex gap-2">
-            <a href={exportHref} className={buttonVariants({ variant: "outline" })}>
+            <button
+              type="button"
+              onClick={handleExport}
+              className={buttonVariants({ variant: "outline" })}
+            >
               <Download className="mr-2 h-4 w-4" />
               Export CSV
-            </a>
+            </button>
             <Button
               className="bg-indigo-500 text-white hover:bg-indigo-600"
               onClick={() => setAddOpen(true)}
@@ -304,8 +348,7 @@ export function LeadsClient({
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleDelete(lead.id)}
-                                disabled={isPending}
-                                className="h-8 w-8 text-zinc-500 hover:text-red-600 disabled:opacity-50 dark:text-zinc-400 dark:hover:text-red-400"
+                                className="h-8 w-8 text-zinc-500 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400"
                                 aria-label={`Delete ${lead.company}`}
                               >
                                 <Trash2 className="h-4 w-4" />

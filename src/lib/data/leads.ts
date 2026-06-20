@@ -19,8 +19,8 @@ export interface Lead {
   updatedAt: Date;
 }
 
-// Single source of truth for create/update validation. Shared by the client
-// form and the server actions so the rules can't drift apart.
+// Single source of truth for create/update validation. Shared by the form and
+// the API layer so the rules can't drift apart.
 export const leadInputSchema = z.object({
   company: z.string().trim().min(1, "Company is required").max(120),
   contactName: z.string().trim().min(1, "Contact name is required").max(80),

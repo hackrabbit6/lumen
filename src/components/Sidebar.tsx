@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { signOut } from "@/lib/auth-client";
+import { signOutDemo } from "@/lib/auth-client";
 import type { SessionUser } from "@/components/AppShell";
 import {
   LayoutDashboard,
@@ -65,7 +65,7 @@ function UserCard({ collapsed, user }: { collapsed: boolean; user: SessionUser }
 
   const handleSignOut = async () => {
     setLoading(true);
-    await signOut();
+    signOutDemo();
     router.replace("/login");
     router.refresh();
   };

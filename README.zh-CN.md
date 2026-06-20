@@ -1,6 +1,6 @@
 # Lumen Admin
 
-一个可复用的通用中后台模板，适合快速启动 CRM、运营后台、内容管理、内部工具和 SaaS 管理端。项目基于 **Next.js 16 / React 19 / TypeScript**，集成登录认证、受保护后台、线索管理、审计日志、CSV 导出、SQLite 持久化和 CI 检查。
+一个前后端分离的通用中后台前端模板，适合快速启动 CRM、运营后台、内容管理、内部工具和 SaaS 管理端。项目基于 **Next.js 16 / React 19 / TypeScript**，默认使用本地 mock 数据演示，后续可以接入独立后端，例如 Elysia / Node / Go / Java API。
 
 ![Dashboard](public/screenshots/dashboard.png)
 
@@ -12,10 +12,11 @@
 
 ## 功能
 
-- **登录认证**：better-auth 邮箱密码登录/注册，路由中间件 + 服务端 layout 双层守卫。
-- **线索管理 Leads**：服务端分页、关键词搜索、状态筛选、优先级筛选、新增、编辑、删除。
-- **CSV 导出**：按当前搜索和筛选条件导出线索数据。
-- **审计日志 Audit Logs**：记录线索新增、编辑、删除，Dashboard 展示最近操作。
+- **Demo 登录态**：本地 cookie + localStorage，方便前端模板直接预览和部署。
+- **路由守卫**：未登录访问后台会跳转到 `/login`。
+- **线索管理 Leads**：分页、关键词搜索、状态筛选、优先级筛选、新增、编辑、删除。
+- **CSV 导出**：按当前筛选结果在浏览器端导出线索数据。
+- **审计日志 Audit Logs**：展示操作日志列表，为后端审计接口预留 UI。
 - **Dashboard**：统计总线索、跟进中、高优先级、已成交，并展示最近线索和最近日志。
 - **后台外壳**：可折叠侧边栏、移动端抽屉、用户卡片、登出。
 - **主题切换**：明暗主题，无首屏闪烁。
@@ -25,8 +26,6 @@
 
 - Next.js 16 App Router / React 19 / TypeScript
 - Tailwind CSS v4 / shadcn/ui / Lucide React
-- better-auth
-- Drizzle ORM / SQLite / better-sqlite3
 - Zod
 - Bun
 
@@ -35,12 +34,10 @@
 ```bash
 bun install
 cp .env.example .env
-bun run db:migrate
-bun run db:seed
 bun run dev
 ```
 
-打开 `http://localhost:3000`。可以在登录页注册新账号，也可以使用开发账号：
+打开 `http://localhost:3000`。Demo 登录页已预填：
 
 ```text
 admin@lumen.app
@@ -55,97 +52,86 @@ bun run lint
 bun run typecheck
 bun run format:check
 bun run build
-bun run db:migrate
-bun run db:seed
+```
+
+## 后端接入
+
+当前模板默认使用 mock 数据。后续接 Elysia 后端时，把接口封装放进 `src/lib/api/`，例如：
+
+```text
+src/lib/api/client.ts      fetch 基础封装
+src/lib/api/leads.ts       Leads 查询、创建、更新、删除
+src/lib/api/audit-logs.ts  审计日志查询
+```
+
+`.env.example` 里预留了：
+
+```text
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8787
+```
+
+推荐后端接口形态：
+
+```text
+POST   /auth/login
+POST   /auth/logout
+GET    /me
+GET    /leads
+POST   /leads
+PATCH  /leads/:id
+DELETE /leads/:id
+GET    /audit-logs
 ```
 
 ## 部署
 
-项目包含 `render.yaml`，推荐先用 Render / Railway / Fly 这类支持长驻服务和持久磁盘的平台部署。SQLite 文件需要持久化存储，不建议直接用没有持久磁盘的 serverless 环境做完整登录后台。
+这是纯前端模板，可以直接部署到 Vercel、Netlify 或 Cloudflare Pages。默认 mock 模式不需要数据库。
 
-Render 部署要点：
+后续接真实后端时，只需要配置：
 
 ```text
-Build Command: bun install --frozen-lockfile && npm rebuild better-sqlite3 && bun run build
-Start Command: bun run deploy:start
-DATABASE_URL: /var/data/lumen.db
-BETTER_AUTH_SECRET: 使用平台生成的随机值
-BETTER_AUTH_URL: 改成你的真实线上域名
-Disk mount path: /var/data
+NEXT_PUBLIC_API_BASE_URL=https://your-api.example.com
 ```
 
 ## 目录
 
 ```text
 src/app/(dashboard)/page.tsx          Dashboard
-src/app/(dashboard)/leads/            Leads 管理页 + server actions
+src/app/(dashboard)/leads/            Leads 管理页
 src/app/(dashboard)/audit-logs/       审计日志页
-src/app/api/leads/export/route.ts     CSV 导出
 src/components/LeadFormModal.tsx      线索新增/编辑弹窗
 src/components/Sidebar.tsx            后台导航
-src/db/schema.ts                      数据表
-src/lib/leads.ts                      Leads 数据访问
-src/lib/audit-logs.ts                 审计日志数据访问
+src/lib/api/                          API client / mock data / CSV helpers
 src/lib/data/leads.ts                 Leads 类型与 zod 校验
 ```
-
-## 数据模型
-
-`leads`：
-
-- `id`
-- `company`
-- `contactName`
-- `contactEmail`
-- `status`: `New | Contacted | Qualified | Won | Lost`
-- `priority`: `Low | Medium | High`
-- `owner`
-- `notes`
-- `createdAt`
-- `updatedAt`
-
-`audit_logs`：
-
-- `id`
-- `action`: `create | update | delete`
-- `resource`
-- `resourceId`
-- `summary`
-- `createdAt`
 
 ## 复用方式
 
 新增一个业务资源时，照 `leads` 复制一套即可：
 
-1. 在 `src/db/schema.ts` 加表。
-2. 在 `src/lib/data/<resource>.ts` 写 zod schema 和类型。
-3. 在 `src/lib/<resource>.ts` 写服务端数据访问。
-4. 在 `src/app/(dashboard)/<resource>/actions.ts` 写 server actions。
-5. 写一个服务端 page 负责读取查询参数，一个客户端组件负责交互。
-6. 在 `Sidebar` 增加导航。
+1. 在 `src/lib/data/<resource>.ts` 写 zod schema 和类型。
+2. 在 `src/lib/api/<resource>.ts` 写 mock 数据处理或真实 fetch 调用。
+3. 在 `src/app/(dashboard)/<resource>/` 写页面和客户端交互。
+4. 在 `Sidebar` 增加导航。
 
 ## 简历描述
 
 ```text
-Lumen Admin 通用中后台模板
-技术栈：Next.js、React、TypeScript、Tailwind CSS、shadcn/ui、better-auth、Drizzle、SQLite
+Lumen Admin 前后端分离中后台模板
+技术栈：Next.js、React、TypeScript、Tailwind CSS、shadcn/ui、Zod
 
-- 独立开发可复用中后台模板，集成登录认证、受保护路由、响应式后台布局、明暗主题和用户登出流程。
-- 实现 Leads 线索管理模块，支持服务端分页、关键词搜索、状态/优先级筛选、新增、编辑、删除和 CSV 导出。
-- 使用 Drizzle + SQLite 设计线索与审计日志表，结合 server actions 与 zod 完成服务端校验、写入、日志记录和页面刷新。
-- 配置 lint、类型检查、格式检查和生产构建流程，可作为 CRM、运营后台、内部工具等项目的起始模板。
+- 独立开发可复用中后台前端模板，集成 demo 登录态、路由守卫、响应式后台布局、明暗主题和用户登出流程。
+- 实现 Leads 线索管理模块，支持分页、关键词搜索、状态/优先级筛选、新增、编辑、删除和 CSV 导出。
+- 抽离 API client 与 mock 数据层，为后续接入 Elysia / REST 后端预留清晰边界，前端不绑定具体后端技术栈。
+- 配置 lint、类型检查、格式检查和生产构建流程，可作为 CRM、运营后台、内部工具等项目的前端起始模板。
 ```
 
 ## 60 秒面试讲法
 
 ```text
-Lumen 是我做的一个通用中后台模板，用来沉淀 CRM、运营后台、内部工具这类项目的基础能力。
+Lumen 是我做的一个前后端分离中后台模板，用来沉淀 CRM、运营后台、内部工具这类项目的前端基础能力。
 
-技术上用了 Next.js、React、TypeScript、better-auth、Drizzle 和 SQLite。功能上包括登录认证、受保护路由、线索管理、服务端分页筛选、CSV 导出和审计日志。
+技术上用了 Next.js、React、TypeScript、Tailwind 和 Zod。现在默认使用 mock 数据，所以可以直接部署预览；后续只要替换 API client，就能接 Elysia 或其它 REST 后端。
 
-我重点想展示的是业务前端交付能力：表格、筛选、弹窗表单、状态展示、异常校验、响应式后台布局，以及和服务端数据写入的完整闭环。
+我重点想展示的是业务前端交付能力：表格、筛选、弹窗表单、状态展示、异常校验、响应式后台布局、CSV 导出，以及清晰的前后端边界。
 ```
-
-## 备注
-
-`better-sqlite3` 是 Node 原生模块，独立数据库脚本使用 Node 执行；Next 服务端代码同样运行在 Node 环境。SQLite 文件适合本地模板、演示和长驻容器/VM，部署到 serverless 前需要确认文件持久化方案。

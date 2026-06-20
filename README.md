@@ -1,6 +1,6 @@
 # Lumen Admin
 
-A reusable admin/backoffice template for CRM, operations dashboards, content tools, and internal apps. Built with **Next.js 16**, **React 19**, **TypeScript**, **better-auth**, **Drizzle**, and **SQLite**.
+A frontend-only admin/backoffice template for CRM, operations dashboards, content tools, and internal apps. Built with **Next.js 16**, **React 19**, **TypeScript**, Tailwind CSS, and shadcn/ui. The demo runs on local mock data and is ready to connect to a separate backend such as Elysia, Node, Go, or Java.
 
 ![Dashboard](public/screenshots/dashboard.png)
 
@@ -12,10 +12,11 @@ A reusable admin/backoffice template for CRM, operations dashboards, content too
 
 ## Features
 
-- Email/password auth with protected dashboard routes
-- Leads module with server-side pagination, search, status filter, priority filter, create, edit, delete
-- CSV export using the current list filters
-- Audit logs for lead create/update/delete actions
+- Demo auth with cookie/localStorage session
+- Protected dashboard routes
+- Leads module with pagination, search, status filter, priority filter, create, edit, delete
+- Browser-side CSV export
+- Audit log UI ready for a backend endpoint
 - Dashboard stats, recent leads, and recent activity
 - Collapsible sidebar, mobile drawer, sign out, dark/light theme
 - CI-ready scripts for lint, typecheck, format check, and build
@@ -24,8 +25,6 @@ A reusable admin/backoffice template for CRM, operations dashboards, content too
 
 - Next.js App Router / React / TypeScript
 - Tailwind CSS / shadcn/ui / Lucide React
-- better-auth
-- Drizzle ORM / SQLite / better-sqlite3
 - Zod
 - Bun
 
@@ -34,12 +33,10 @@ A reusable admin/backoffice template for CRM, operations dashboards, content too
 ```bash
 bun install
 cp .env.example .env
-bun run db:migrate
-bun run db:seed
 bun run dev
 ```
 
-Open `http://localhost:3000`. Register from the login page or use the local demo account:
+Open `http://localhost:3000`. The demo login is prefilled:
 
 ```text
 admin@lumen.app
@@ -54,43 +51,65 @@ bun run lint
 bun run typecheck
 bun run format:check
 bun run build
-bun run db:migrate
-bun run db:seed
+```
+
+## Backend Integration
+
+The template currently uses mock data. When connecting a backend, replace or extend the API layer in `src/lib/api/`.
+
+```text
+src/lib/api/client.ts      fetch wrapper
+src/lib/api/leads.ts       leads list/create/update/delete
+src/lib/api/audit-logs.ts  audit log contracts
+```
+
+`.env.example` includes:
+
+```text
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8787
+```
+
+Suggested API shape:
+
+```text
+POST   /auth/login
+POST   /auth/logout
+GET    /me
+GET    /leads
+POST   /leads
+PATCH  /leads/:id
+DELETE /leads/:id
+GET    /audit-logs
 ```
 
 ## Deployment
 
-The repo includes `render.yaml`. Prefer Render, Railway, Fly, or another long-running platform with persistent disk support. The app uses SQLite, so a serverless target without persistent storage is not a good fit for the full authenticated demo.
+This is a frontend template and can be deployed to Vercel, Netlify, or Cloudflare Pages. The mock demo does not require a database.
 
-Render settings:
+For a real backend, configure:
 
 ```text
-Build Command: bun install --frozen-lockfile && npm rebuild better-sqlite3 && bun run build
-Start Command: bun run deploy:start
-DATABASE_URL: /var/data/lumen.db
-BETTER_AUTH_SECRET: generated random value
-BETTER_AUTH_URL: your real production URL
-Disk mount path: /var/data
+NEXT_PUBLIC_API_BASE_URL=https://your-api.example.com
 ```
 
 ## Resume Summary
 
 ```text
-Lumen Admin reusable backoffice template
-Stack: Next.js, React, TypeScript, Tailwind CSS, shadcn/ui, better-auth, Drizzle, SQLite
+Lumen Admin frontend-separated backoffice template
+Stack: Next.js, React, TypeScript, Tailwind CSS, shadcn/ui, Zod
 
-- Built a reusable admin template with authentication, protected routes, responsive app shell, theme switching, and sign out.
-- Implemented a Leads module with server-side pagination, search, status/priority filters, create/edit/delete, and CSV export.
-- Designed SQLite tables with Drizzle for leads and audit logs, using server actions and zod for validation, writes, audit records, and revalidation.
-- Added lint, typecheck, format check, and production build scripts so the project can start future CRM, operations, or internal-tool products.
+- Built a reusable admin frontend template with demo auth, protected routes, responsive app shell, theme switching, and sign out.
+- Implemented a Leads module with pagination, search, status/priority filters, create/edit/delete, and CSV export.
+- Separated the API client and mock data layer so the frontend can later connect to an Elysia or REST backend without binding to one backend stack.
+- Added lint, typecheck, format check, and production build scripts so the project can start future CRM, operations, or internal-tool frontends.
 ```
 
 ## Interview Pitch
 
 ```text
-Lumen is a reusable admin template I built for CRM, operations dashboards, and internal tools.
+Lumen is a frontend-separated admin template I built for CRM, operations dashboards, and internal tools.
 
-It uses Next.js, React, TypeScript, better-auth, Drizzle, and SQLite. The app includes auth, protected routes, lead management, server-side pagination and filtering, CSV export, and audit logs.
+It uses Next.js, React, TypeScript, Tailwind, and Zod. It runs with mock data for easy preview, and the API client layer is ready to connect to an Elysia or REST backend later.
 
-The goal is to show practical business frontend delivery: tables, filters, modal forms, status display, validation, responsive admin layout, and the full loop from UI interactions to server-side writes.
+The goal is to show practical business frontend delivery: tables, filters, modal forms, status display, validation, responsive admin layout, CSV export, and clean frontend/backend boundaries.
 ```

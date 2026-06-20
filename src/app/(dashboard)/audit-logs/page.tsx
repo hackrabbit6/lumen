@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getAuditLogs, type AuditAction } from "@/lib/audit-logs";
+import { mockAuditLogs } from "@/lib/api/mock-data";
+import type { AuditAction } from "@/lib/api/audit-logs";
 import { Activity } from "lucide-react";
 
 function actionColor(action: AuditAction) {
@@ -14,8 +15,8 @@ function actionColor(action: AuditAction) {
   }
 }
 
-export default async function AuditLogsPage() {
-  const logs = await getAuditLogs(100);
+export default function AuditLogsPage() {
+  const logs = mockAuditLogs;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">

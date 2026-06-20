@@ -4,8 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Activity, UserRound } from "lucide-react";
-import { getAuditLogs } from "@/lib/audit-logs";
-import { getLeads } from "@/lib/leads";
+import { mockAuditLogs, mockLeads } from "@/lib/api/mock-data";
 import type { LeadStatus } from "@/lib/data/leads";
 
 function statusColor(status: LeadStatus) {
@@ -23,8 +22,9 @@ function statusColor(status: LeadStatus) {
   }
 }
 
-export default async function Dashboard() {
-  const [leads, logs] = await Promise.all([getLeads(), getAuditLogs(5)]);
+export default function Dashboard() {
+  const leads = mockLeads;
+  const logs = mockAuditLogs.slice(0, 5);
   const count = (s: LeadStatus) => leads.filter((i) => i.status === s).length;
   const recent = leads.slice(0, 5);
   const activeCount = leads.filter((i) =>
@@ -115,8 +115,7 @@ export default async function Dashboard() {
                     No leads yet
                   </p>
                   <p className="mt-1 text-sm text-zinc-500">
-                    Run <code className="font-mono">bun run db:seed</code> or add one from
-                    the Leads page.
+                    Add one from the Leads page.
                   </p>
                 </div>
               ) : (

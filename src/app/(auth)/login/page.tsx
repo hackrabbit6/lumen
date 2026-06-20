@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn, signUp } from "@/lib/auth-client";
+import { signInDemo } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,8 +20,8 @@ function AuthForm() {
 
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("admin@lumen.app");
+  const [password, setPassword] = useState("password123");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -30,17 +30,8 @@ function AuthForm() {
     setError(null);
     setLoading(true);
 
-    const { error } =
-      mode === "signin"
-        ? await signIn.email({ email, password })
-        : await signUp.email({ email, password, name });
-
+    signInDemo();
     setLoading(false);
-
-    if (error) {
-      setError(error.message || "Something went wrong. Please try again.");
-      return;
-    }
     router.replace(redirectTo);
     router.refresh();
   }
@@ -58,6 +49,9 @@ function AuthForm() {
             </p>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               {mode === "signin" ? "Sign in to your account" : "Create a new account"}
+            </p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+              Demo mode: any valid email + 8 character password
             </p>
           </div>
         </div>
