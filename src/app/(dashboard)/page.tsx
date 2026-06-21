@@ -1,10 +1,15 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { StatsCard } from "@/components/StatsCard";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Activity, UserRound } from "lucide-react";
-import { mockAuditLogs, mockLeads } from "@/lib/api/mock-data";
+import { fetchAuditLogs, type AuditLog } from "@/lib/api/audit-logs";
+import { fetchLeads } from "@/lib/api/leads";
+import type { Lead } from "@/lib/data/leads";
 import type { LeadStatus } from "@/lib/data/leads";
 
 function statusColor(status: LeadStatus) {
@@ -23,14 +28,44 @@ function statusColor(status: LeadStatus) {
 }
 
 export default function Dashboard() {
-  const leads = mockLeads;
-  const logs = mockAuditLogs.slice(0, 5);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadDashboard() {
+      try {
+        const [leadsPage, auditLogs] = await Promise.all([
+          fetchLeads({ page: 1, pageSize: 5 }),
+          fetchAuditLogs(),
+        ]);
+        if (!isMounted) return;
+        setLeads(leadsPage.leads);
+        setLogs(auditLogs.slice(0, 5));
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    void loadDashboard();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const count = (s: LeadStatus) => leads.filter((i) => i.status === s).length;
   const recent = leads.slice(0, 5);
-  const activeCount = leads.filter((i) =>
-    ["New", "Contacted", "Qualified"].includes(i.status),
-  ).length;
-  const highPriority = leads.filter((i) => i.priority === "High").length;
+  const activeCount = useMemo(
+    () =>
+      leads.filter((i) => ["New", "Contacted", "Qualified"].includes(i.status)).length,
+    [leads],
+  );
+  const highPriority = useMemo(
+    () => leads.filter((i) => i.priority === "High").length,
+    [leads],
+  );
 
   const stats = [
     {
@@ -108,7 +143,9 @@ export default function Dashboard() {
               </Link>
             </CardHeader>
             <CardContent className="p-0">
-              {recent.length === 0 ? (
+              {isLoading ? (
+                <div className="px-4 py-10 text-sm text-zinc-500">Loading leads...</div>
+              ) : recent.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <UserRound className="mb-3 h-10 w-10 text-zinc-400 dark:text-zinc-600" />
                   <p className="font-medium text-zinc-600 dark:text-zinc-400">
@@ -160,7 +197,11 @@ export default function Dashboard() {
               </Link>
             </CardHeader>
             <CardContent className="p-0">
-              {logs.length === 0 ? (
+              {isLoading ? (
+                <div className="px-4 py-10 text-sm text-zinc-500">
+                  Loading activity...
+                </div>
+              ) : logs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <Activity className="mb-3 h-10 w-10 text-zinc-400 dark:text-zinc-600" />
                   <p className="font-medium text-zinc-600 dark:text-zinc-400">

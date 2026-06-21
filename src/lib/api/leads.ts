@@ -5,6 +5,7 @@ import type {
   NewLeadInput,
   UpdateLeadInput,
 } from "@/lib/data/leads";
+import { apiFetch } from "@/lib/api/client";
 
 export const DEFAULT_PAGE_SIZE = 8;
 
@@ -22,6 +23,48 @@ export interface LeadsPage {
   page: number;
   pageSize: number;
   pageCount: number;
+}
+
+function toLead(lead: Lead): Lead {
+  return {
+    ...lead,
+    createdAt: new Date(lead.createdAt),
+    updatedAt: new Date(lead.updatedAt),
+  };
+}
+
+export async function fetchLeads(options: ListLeadsOptions = {}): Promise<LeadsPage> {
+  const params = new URLSearchParams();
+  if (options.page) params.set("page", String(options.page));
+  if (options.pageSize) params.set("pageSize", String(options.pageSize));
+  if (options.q) params.set("q", options.q);
+  if (options.status) params.set("status", options.status);
+  if (options.priority) params.set("priority", options.priority);
+
+  const result = await apiFetch<LeadsPage>(`/leads?${params.toString()}`);
+  return { ...result, leads: result.leads.map(toLead) };
+}
+
+export async function postLead(input: NewLeadInput): Promise<Lead> {
+  return toLead(
+    await apiFetch<Lead>("/leads", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  );
+}
+
+export async function patchLead(id: string, input: UpdateLeadInput): Promise<Lead> {
+  return toLead(
+    await apiFetch<Lead>(`/leads/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  );
+}
+
+export async function deleteLead(id: string): Promise<void> {
+  await apiFetch<void>(`/leads/${id}`, { method: "DELETE" });
 }
 
 export function listLeads(allLeads: Lead[], options: ListLeadsOptions = {}): LeadsPage {

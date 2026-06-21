@@ -1,7 +1,9 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockAuditLogs } from "@/lib/api/mock-data";
-import type { AuditAction } from "@/lib/api/audit-logs";
+import { fetchAuditLogs, type AuditAction, type AuditLog } from "@/lib/api/audit-logs";
 import { Activity } from "lucide-react";
 
 function actionColor(action: AuditAction) {
@@ -16,7 +18,19 @@ function actionColor(action: AuditAction) {
 }
 
 export default function AuditLogsPage() {
-  const logs = mockAuditLogs;
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAuditLogs()
+      .then((items) => {
+        setLogs(items);
+        setError(null);
+      })
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : "Failed to load logs"),
+      );
+  }, []);
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -40,6 +54,11 @@ export default function AuditLogsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
+              {error && (
+                <p className="m-4 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+                  {error}
+                </p>
+              )}
               {logs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <Activity className="mb-3 h-10 w-10 text-zinc-400 dark:text-zinc-600" />

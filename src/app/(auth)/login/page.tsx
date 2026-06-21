@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signInDemo } from "@/lib/auth-client";
+import { signInApi } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,10 +30,15 @@ function AuthForm() {
     setError(null);
     setLoading(true);
 
-    signInDemo();
-    setLoading(false);
-    router.replace(redirectTo);
-    router.refresh();
+    try {
+      await signInApi(email, password);
+      router.replace(redirectTo);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -51,7 +56,7 @@ function AuthForm() {
               {mode === "signin" ? "Sign in to your account" : "Create a new account"}
             </p>
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
-              Demo mode: any valid email + 8 character password
+              Connected to Lumen API
             </p>
           </div>
         </div>

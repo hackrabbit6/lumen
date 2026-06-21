@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -17,8 +17,7 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
-import { createLead, leadsToCsv, listLeads, updateLead } from "@/lib/api/leads";
-import { createAuditLog, type AuditLog } from "@/lib/api/audit-logs";
+import { deleteLead, fetchLeads, leadsToCsv, patchLead, postLead } from "@/lib/api/leads";
 import {
   LEAD_PRIORITIES,
   LEAD_STATUSES,
@@ -61,15 +60,17 @@ function priorityColor(priority: LeadPriority) {
 }
 
 interface LeadsClientProps {
-  initialLeads: Lead[];
-  initialLogs: AuditLog[];
+  initialLeads?: Lead[];
 }
 
-export function LeadsClient({ initialLeads, initialLogs }: LeadsClientProps) {
+export function LeadsClient({ initialLeads = [] }: LeadsClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [allLeads, setAllLeads] = useState(initialLeads);
-  const [, setLogs] = useState(initialLogs);
+  const [total, setTotal] = useState(initialLeads.length);
+  const [pageCount, setPageCount] = useState(1);
+  const [pageSize, setPageSize] = useState(8);
+  const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [q, setQ] = useState("");
@@ -112,67 +113,59 @@ export function LeadsClient({ initialLeads, initialLogs }: LeadsClientProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
-  const result = useMemo(
-    () =>
-      listLeads(allLeads, {
-        page,
-        q,
-        status: status === "All" ? undefined : status,
-        priority: priority === "All" ? undefined : priority,
-      }),
-    [allLeads, page, priority, q, status],
-  );
-  const { leads, total, pageSize, pageCount } = result;
+  useEffect(() => {
+    let alive = true;
+    fetchLeads({
+      page,
+      q,
+      status: status === "All" ? undefined : status,
+      priority: priority === "All" ? undefined : priority,
+    })
+      .then((result) => {
+        if (!alive) return;
+        setAllLeads(result.leads);
+        setTotal(result.total);
+        setPageCount(result.pageCount);
+        setPageSize(result.pageSize);
+        setError(null);
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setError(err instanceof Error ? err.message : "Failed to load leads");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [page, priority, q, status]);
+  const leads = allLeads;
 
   async function handleCreate(input: NewLeadInput) {
-    const lead = createLead(input);
-    setAllLeads((items) => [lead, ...items]);
-    setLogs((items) => [
-      createAuditLog({
-        action: "create",
-        resource: "lead",
-        resourceId: lead.id,
-        summary: `Created lead for ${lead.company}`,
-      }),
-      ...items,
-    ]);
+    const lead = await postLead(input);
+    setAllLeads((items) => [lead, ...items].slice(0, pageSize));
+    setTotal((value) => value + 1);
     return { ok: true };
   }
 
   async function handleUpdate(input: NewLeadInput) {
     if (!editing) return { ok: false, error: "Nothing to update" };
-    const updated = updateLead(editing, input);
+    const updated = await patchLead(editing.id, input);
     setAllLeads((items) =>
       items.map((lead) => (lead.id === editing.id ? updated : lead)),
     );
-    setLogs((items) => [
-      createAuditLog({
-        action: "update",
-        resource: "lead",
-        resourceId: updated.id,
-        summary: `Updated lead for ${updated.company}`,
-      }),
-      ...items,
-    ]);
     return { ok: true };
   }
 
   function handleDelete(id: string) {
-    const lead = allLeads.find((item) => item.id === id);
-    setAllLeads((items) => items.filter((item) => item.id !== id));
-    setLogs((items) => [
-      createAuditLog({
-        action: "delete",
-        resource: "lead",
-        resourceId: id,
-        summary: `Deleted lead ${lead?.company ?? id}`,
-      }),
-      ...items,
-    ]);
+    deleteLead(id)
+      .then(() => {
+        setAllLeads((items) => items.filter((item) => item.id !== id));
+        setTotal((value) => Math.max(0, value - 1));
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Delete failed"));
   }
 
   function handleExport() {
-    const csv = leadsToCsv(result.leads);
+    const csv = leadsToCsv(leads);
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
@@ -214,6 +207,11 @@ export function LeadsClient({ initialLeads, initialLogs }: LeadsClientProps) {
         <div className="space-y-6 p-6">
           <Card className="border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/50">
             <CardContent className="p-4">
+              {error && (
+                <p className="mb-4 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+                  {error}
+                </p>
+              )}
               <div className="flex flex-col gap-4">
                 <div className="relative">
                   <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-400 dark:text-zinc-500" />
